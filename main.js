@@ -1,85 +1,117 @@
-const indexURL = "https://lighthouse-user-api.herokuapp.com/api/v1/users/";
-const userPanel = document.querySelector("#user-panel");
-const users = [];
-
-function renderUsers(data) {
-  let rawHTML = "";
-  data.forEach((item) => {
-    // item.name
-    rawHTML += `
-    <div class="col-md-auto p-0 mx-2 my-3">
-      <div class="card border-0">
-        <div>
-          <img src=${item.avatar} class="card-img-top user-avatar" alt="User Avatar" data-bs-toggle="modal" data-bs-target="#user-modal" data-id="${item.id}">
-        </div>
-        <div class="user-info">
-          <p class="my-1 text-center name">${item.name}</p>
-        </div>
-      </div>
-    </div>
-    `;
-  });
-  userPanel.innerHTML = rawHTML;
+const model = {
+  indexURL: 'https://lighthouse-user-api.herokuapp.com/api/v1/users/',
+  userPanel: document.querySelector("#user-panel"),
+  paginatorPanel: document.querySelector("#paginator-panel"),
+  users: [],
+  personPerPage: 27,
+  currentPage: 1,
 }
 
-function showUserModal(id) {
-  const modalImage = document.querySelector("#modal-image");
-  const modalName = document.querySelector("#modal-name");
-  const modalRegion = document.querySelector("#modal-region");
-  const modalBirth = document.querySelector("#modal-birth");
-  const modalAge = document.querySelector("#modal-age");
-  const modalGender = document.querySelector("#modal-gender");
-  const modalEmail = document.querySelector("#modal-email");
+const view = {
+  getPersonPerPage(page){
+    const data = model.users
+    const startIndex = (page-1) * model.personPerPage
+    return data.slice(startIndex, startIndex + model.personPerPage)
+  },
 
-  // 先將 modal 內容清空，以免出現上一個 user 的資料殘影
-  modalImage.innerHTML = "";
-  modalName.innerText = "";
-  modalRegion.innerText = "";
-  modalBirth.innerHTML = "";
-  modalAge.innerHTML = "";
-  modalGender.innerHTML = "";
-  modalEmail.innerHTML = "";
+  renderPerson(data) {
+    model.userPanel.innerHTML = data.map(el =>
+      `<div class="col-md-auto p-0 mx-2 my-3">
+        <div class="card border-0">
+          <div>
+            <img src=${el.avatar} class="card-img-top user-avatar" alt="User Avatar" data-bs-toggle="modal" data-bs-target="#user-modal" data-id="${el.id}">
+          </div>
+          <div class="user-info">
+            <p class="my-1 text-center name" data-bs-toggle="modal" data-bs-target="#user-modal" data-id="${el.id}">${el.name}</p>
+          </div>
+        </div>
+      </div>
+    `).join('')
+  },
 
-  axios
-    .get(indexURL + id)
-    .then((response) => {
-      const data = response.data;
-      modalImage.innerHTML = `<img src="${data.avatar}" alt="User Avatar" class=" float-end">`;
-      modalName.innerText = `${data.name} ${data.surname}`;
-      modalRegion.innerText = data.region;
-      modalBirth.innerHTML = `
-      <i class="fa-solid fa-calendar-days modal-icon"></i>
-      ${data.birthday}
-      `;
-      modalAge.innerHTML = `
-      <i class="fa-solid fa-cake-candles modal-icon"></i>
-      age ${data.age}
-      `;
-      modalGender.innerHTML = `
-      <i class="fa-solid fa-mars-and-venus modal-icon"></i>
-      ${data.gender}
-      `;
-      modalEmail.innerHTML = `
-      <i class="fa-solid fa-envelope modal-icon"></i>
-      ${data.email}
-      `;
+  renderPaginator(){
+    const data = model.users //取得data
+    const pageCount = Math.ceil(data.length/model.personPerPage) //算出要幾頁
+    let rawHTML = `
+      <li class="page-item active" data-page="1">
+        <a class="page-link" href="#" data-page="1">1</a>
+      </li>
+    `
+    for (let page = 2 ; page <= pageCount ; page++) {
+      rawHTML +=  `
+      <li class="page-item" data-page="${page}">
+        <a class="page-link" href="#" data-page="${page}">${page}</a>
+      </li>`
+    }
+    model.paginatorPanel.innerHTML = rawHTML
+    model.paginatorPanel.addEventListener('click', event =>{
+      model.currentPage = Number(event.target.dataset.page)
+      this.renderPerson(this.getPersonPerPage(model.currentPage))
+      this.renderPageStatus(model.currentPage)
     })
-    .catch((error) => console.log(error));
+  },
+
+  renderPageStatus(page) {
+    const allPageItems = [...document.querySelectorAll(".page-item")];
+    allPageItems.forEach((item) => {
+      if (item.classList.contains("active")) {
+        item.classList.remove("active");
+      }
+    });
+    const activePage = allPageItems.find(item => Number(item.dataset.page) === page);
+    activePage.classList.add("active");
+  },
+
+  renderModal(person) {
+    const modalImg = document.querySelector("#modal-image")
+    const modalName = document.querySelector("#modal-name")
+    const modalRegion = document.querySelector("#modal-region")
+    const modalBirth = document.querySelector("#modal-birth")
+    const modalAge = document.querySelector("#modal-age")
+    const modalGender = document.querySelector("#modal-gender")
+    const modalEmail = document.querySelector("#modal-email")
+    modalImg.textContent = ''
+    modalName.textContent = ''
+    modalRegion.textContent = ''
+    modalBirth.textContent = ''
+    modalAge.textContent = ''
+    modalGender.textContent = ''
+    modalEmail.textContent = ''
+
+    //放入資料
+    modalImg.innerHTML = `<img src="${person.avatar}" alt="">`
+    modalName.textContent = person.name + person.surname
+    modalRegion.textContent = person.region
+    modalBirth.textContent = person.birth
+    modalAge.textContent = person.age
+    modalGender.textContent = person.gender
+    modalEmail.textContent = person.email
+  },
+
+}
+
+const controller = {
+  displayUserList(data) {
+    model.users.push(...data); //取得user（放在users[]裡）
+    view.renderPerson(view.getPersonPerPage(model.currentPage))
+    view.renderPaginator()
+  },
+
+  showModal (data) {
+    model.userPanel.addEventListener('click', event =>{
+      console.log(event.target)
+      const id = Number(event.target.dataset.id)
+      const person = data.find(el => el.id === id)
+      view.renderModal(person)
+    })
+  }
 }
 
 axios
-  .get(indexURL)
+  .get(model.indexURL)
   .then((response) => {
     const data = response.data.results;
-    //取得user（放在users[]裡）
-    users.push(...data);
-    //執行render畫面的function
-    renderUsers(users);
+    controller.displayUserList(data);
+    controller.showModal(data)
   })
   .catch((error) => console.log(error));
-
-userPanel.addEventListener("click", function clickImage(event) {
-  if (event.target.matches(".user-avatar")) {
-    showUserModal(Number(event.target.dataset.id));
-  }
-});

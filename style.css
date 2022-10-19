@@ -71,3 +71,7 @@ body {
 .modal-icon {
   margin-right: 4px;
 }
+
+.pagination {
+  margin: 40px 0;
+}
